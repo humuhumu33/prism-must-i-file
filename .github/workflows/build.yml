@@ -79,12 +79,14 @@ jobs:
         # builds it in the image. Either way `prismpm verify` is the build.
         run: |
           set -euo pipefail
-          if [[ -f app/lexlean.toml ]]; then
-            project=app
-            command='just app'
-          elif [[ -f prism/prism.toml ]]; then
+          # This instance ships its own app in prism/; app/ stays the template's
+          # contract checker, which `just vv` still gates on every push.
+          if [[ -f prism/prism.toml ]]; then
             project=prism
             command='cd prism && lexlean lock && lexlean fmt --all && lexlean lock && prismpm verify'
+          elif [[ -f app/lexlean.toml ]]; then
+            project=app
+            command='just app'
           elif [[ -f prism.toml ]]; then
             project=.
             command='lexlean lock && lexlean fmt --all && lexlean lock && prismpm verify'

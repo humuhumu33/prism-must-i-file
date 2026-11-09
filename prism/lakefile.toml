@@ -1,0 +1,6 @@
+name = "PrismMustIFile"
+version = "0.1.0"
+defaultTargets = ["PrismMustIFile"]
+
+[[lean_lib]]
+name = "PrismMustIFile"

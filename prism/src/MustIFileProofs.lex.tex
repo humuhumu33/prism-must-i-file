@@ -1,0 +1,218 @@
+\begin{lexlean}{MustIFileProofs}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{MustIFile}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: breaksInv001,
+  parameters: [request : MustIFile::Request],
+  result: Bool,
+  body: (((((((((project request status) <? 4) && ((project request seniors) <=? 2)) && ((project request gross) <=? 99999999)) && ((project request dependent) <? 2)) && ((project request special) <? 2)) && ((project request payments) <? 2)) && ((project request dependent) =? (MustIFile::dependentYes))) && (not ((MustIFile::judge request) =? (MustIFile::answerReview))))
+}
+
+theorem{
+  name: inv001Holds,
+  parameters: [request : MustIFile::Request],
+  statement: ((breaksInv001 request) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      MustIFile::answerFile,
+      MustIFile::answerNone,
+      MustIFile::answerRefund,
+      MustIFile::answerReview,
+      MustIFile::dependentNo,
+      MustIFile::dependentYes,
+      MustIFile::judge,
+      MustIFile::paymentsNo,
+      MustIFile::paymentsYes,
+      MustIFile::specialNo,
+      MustIFile::specialYes,
+      MustIFile::statusHead,
+      MustIFile::statusJoint,
+      MustIFile::statusSeparate,
+      MustIFile::statusSingle,
+      MustIFile::threshold,
+      breaksInv001
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: breaksInv002,
+  parameters: [request : MustIFile::Request],
+  result: Bool,
+  body: (((((((((project request status) <? 4) && ((project request seniors) <=? 2)) && ((project request gross) <=? 99999999)) && ((project request dependent) <? 2)) && ((project request special) <? 2)) && ((project request payments) <? 2)) && ((project request special) =? (MustIFile::specialYes))) && ((MustIFile::judge request) =? (MustIFile::answerNone)))
+}
+
+theorem{
+  name: inv002Holds,
+  parameters: [request : MustIFile::Request],
+  statement: ((breaksInv002 request) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      MustIFile::answerFile,
+      MustIFile::answerNone,
+      MustIFile::answerRefund,
+      MustIFile::answerReview,
+      MustIFile::dependentNo,
+      MustIFile::dependentYes,
+      MustIFile::judge,
+      MustIFile::paymentsNo,
+      MustIFile::paymentsYes,
+      MustIFile::specialNo,
+      MustIFile::specialYes,
+      MustIFile::statusHead,
+      MustIFile::statusJoint,
+      MustIFile::statusSeparate,
+      MustIFile::statusSingle,
+      MustIFile::threshold,
+      breaksInv002
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: breaksInv003,
+  parameters: [request : MustIFile::Request],
+  result: Bool,
+  body: (((((((((project request status) <? 4) && ((project request seniors) <=? 2)) && ((project request gross) <=? 99999999)) && ((project request dependent) <? 2)) && ((project request special) <? 2)) && ((project request payments) <? 2)) && ((project request payments) =? (MustIFile::paymentsYes))) && ((MustIFile::judge request) =? (MustIFile::answerNone)))
+}
+
+theorem{
+  name: inv003Holds,
+  parameters: [request : MustIFile::Request],
+  statement: ((breaksInv003 request) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      MustIFile::answerFile,
+      MustIFile::answerNone,
+      MustIFile::answerRefund,
+      MustIFile::answerReview,
+      MustIFile::dependentNo,
+      MustIFile::dependentYes,
+      MustIFile::judge,
+      MustIFile::paymentsNo,
+      MustIFile::paymentsYes,
+      MustIFile::specialNo,
+      MustIFile::specialYes,
+      MustIFile::statusHead,
+      MustIFile::statusJoint,
+      MustIFile::statusSeparate,
+      MustIFile::statusSingle,
+      MustIFile::threshold,
+      breaksInv003
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: breaksInv004,
+  parameters: [request : MustIFile::Request],
+  result: Bool,
+  body: (((((((((((project request status) <? 4) && ((project request seniors) <=? 2)) && ((project request gross) <=? 99999999)) && ((project request dependent) <? 2)) && ((project request special) <? 2)) && ((project request payments) <? 2)) && ((project request status) =? (MustIFile::statusSingle))) && (18150 <=? (project request gross))) && ((project request dependent) =? (MustIFile::dependentNo))) && (not ((MustIFile::judge request) =? (MustIFile::answerFile))))
+}
+
+theorem{
+  name: inv004Holds,
+  parameters: [request : MustIFile::Request],
+  statement: ((breaksInv004 request) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      MustIFile::answerFile,
+      MustIFile::answerNone,
+      MustIFile::answerRefund,
+      MustIFile::answerReview,
+      MustIFile::dependentNo,
+      MustIFile::dependentYes,
+      MustIFile::judge,
+      MustIFile::paymentsNo,
+      MustIFile::paymentsYes,
+      MustIFile::specialNo,
+      MustIFile::specialYes,
+      MustIFile::statusHead,
+      MustIFile::statusJoint,
+      MustIFile::statusSeparate,
+      MustIFile::statusSingle,
+      MustIFile::threshold,
+      breaksInv004
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: breaksInv005,
+  parameters: [request : MustIFile::Request],
+  result: Bool,
+  body: (((((((((((project request status) <? 4) && ((project request seniors) <=? 2)) && ((project request gross) <=? 99999999)) && ((project request dependent) <? 2)) && ((project request special) <? 2)) && ((project request payments) <? 2)) && ((project request status) =? (MustIFile::statusJoint))) && (35500 <=? (project request gross))) && ((project request dependent) =? (MustIFile::dependentNo))) && (not ((MustIFile::judge request) =? (MustIFile::answerFile))))
+}
+
+theorem{
+  name: inv005Holds,
+  parameters: [request : MustIFile::Request],
+  statement: ((breaksInv005 request) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      MustIFile::answerFile,
+      MustIFile::answerNone,
+      MustIFile::answerRefund,
+      MustIFile::answerReview,
+      MustIFile::dependentNo,
+      MustIFile::dependentYes,
+      MustIFile::judge,
+      MustIFile::paymentsNo,
+      MustIFile::paymentsYes,
+      MustIFile::specialNo,
+      MustIFile::specialYes,
+      MustIFile::statusHead,
+      MustIFile::statusJoint,
+      MustIFile::statusSeparate,
+      MustIFile::statusSingle,
+      MustIFile::threshold,
+      breaksInv005
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: breaksInv006,
+  parameters: [request : MustIFile::Request],
+  result: Bool,
+  body: ((((((((((project request status) <? 4) && ((project request seniors) <=? 2)) && ((project request gross) <=? 99999999)) && ((project request dependent) <? 2)) && ((project request special) <? 2)) && ((project request payments) <? 2)) && ((project request gross) <? 5)) && ((project request special) =? (MustIFile::specialNo))) && ((MustIFile::judge request) =? (MustIFile::answerFile)))
+}
+
+theorem{
+  name: inv006Holds,
+  parameters: [request : MustIFile::Request],
+  statement: ((breaksInv006 request) = false),
+  proof: linear_arithmetic{
+    definitions: [
+      MustIFile::answerFile,
+      MustIFile::answerNone,
+      MustIFile::answerRefund,
+      MustIFile::answerReview,
+      MustIFile::dependentNo,
+      MustIFile::dependentYes,
+      MustIFile::judge,
+      MustIFile::paymentsNo,
+      MustIFile::paymentsYes,
+      MustIFile::specialNo,
+      MustIFile::specialYes,
+      MustIFile::statusHead,
+      MustIFile::statusJoint,
+      MustIFile::statusSeparate,
+      MustIFile::statusSingle,
+      MustIFile::threshold,
+      breaksInv006
+    ]
+  },
+  axioms: [Quot.sound, propext]
+}
+\end{semanticmodule}
+\end{lexlean}

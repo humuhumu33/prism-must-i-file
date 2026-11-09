@@ -1,0 +1,260 @@
+\begin{lexlean}{MustIFile}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Foundation.Bytes}
+\importmodule{Foundation.View.Text.V1.Model}
+\title{Text application model}
+\begin{semanticmodule}
+definition{name: statusSingle, parameters: [], result: Nat, body: 0}
+
+definition{name: statusJoint, parameters: [], result: Nat, body: 1}
+
+definition{name: statusSeparate, parameters: [], result: Nat, body: 2}
+
+definition{name: statusHead, parameters: [], result: Nat, body: 3}
+
+definition{name: dependentYes, parameters: [], result: Nat, body: 0}
+
+definition{name: dependentNo, parameters: [], result: Nat, body: 1}
+
+definition{name: specialYes, parameters: [], result: Nat, body: 0}
+
+definition{name: specialNo, parameters: [], result: Nat, body: 1}
+
+definition{name: paymentsYes, parameters: [], result: Nat, body: 0}
+
+definition{name: paymentsNo, parameters: [], result: Nat, body: 1}
+
+definition{name: answerFile, parameters: [], result: Nat, body: 0}
+
+definition{name: answerRefund, parameters: [], result: Nat, body: 1}
+
+definition{name: answerNone, parameters: [], result: Nat, body: 2}
+
+definition{name: answerReview, parameters: [], result: Nat, body: 3}
+
+structure{
+  name: Request,
+  type_parameters: [],
+  parameters: [],
+  fields: [
+    {name: status, type: Nat},
+    {name: seniors, type: Nat},
+    {name: gross, type: Nat},
+    {name: dependent, type: Nat},
+    {name: special, type: Nat},
+    {name: payments, type: Nat}
+  ]
+}
+
+definition{
+  name: byteAt,
+  parameters: [s : Bytes, i : Nat],
+  result: (Option Nat),
+  body: (match (prim index s i : (Option UInt8))
+    | Option.none => (ctor Option.none [Nat])
+    | Option.some b => (ctor Option.some [Nat] (prim to_nat b : Nat))),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: digitsValue,
+  parameters: [s : Bytes, i : Nat, acc : Nat, fuel : Nat],
+  result: (Option Nat),
+  body: (match fuel
+    | Nat.zero => (ctor Option.some [Nat] acc)
+    | Nat.succ rest => (match (byteAt s i)
+      | Option.none => (ctor Option.none [Nat])
+      | Option.some d => (if ((d <? 48) || (57 <? d)) then (ctor Option.none [Nat]) else (digitsValue s (i + 1) ((prim multiply acc 10 : Nat) + (prim subtract d 48 : Nat)) rest)))),
+  axioms: [Quot.sound, propext],
+  recursive_argument: fuel
+}
+
+definition{
+  name: parseDigits,
+  parameters: [s : Bytes],
+  result: (Option Nat),
+  body: (if ((Foundation.Bytes::byteLength s) =? 0) then (ctor Option.none [Nat]) else (if (18 <? (Foundation.Bytes::byteLength s)) then (ctor Option.none [Nat]) else (match (byteAt s 0)
+    | Option.none => (ctor Option.none [Nat])
+    | Option.some lead => (if ((lead =? 48) && (1 <? (Foundation.Bytes::byteLength s))) then (ctor Option.none [Nat]) else (digitsValue s 0 0 (Foundation.Bytes::byteLength s)))))),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: parseNumber,
+  parameters: [value : Bytes],
+  result: (Option Nat),
+  body: (parseDigits value),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: parseStatus,
+  parameters: [value : Bytes],
+  result: (Option Nat),
+  body: (if (prim equal value 0x73696e676c65 : Bool) then (ctor Option.some [Nat] (statusSingle)) else (if (prim equal value 0x6a6f696e74 : Bool) then (ctor Option.some [Nat] (statusJoint)) else (if (prim equal value 0x7365706172617465 : Bool) then (ctor Option.some [Nat] (statusSeparate)) else (if (prim equal value 0x68656164 : Bool) then (ctor Option.some [Nat] (statusHead)) else (ctor Option.none [Nat])))))
+}
+
+definition{
+  name: parseSeniors,
+  parameters: [value : Bytes],
+  result: (Option Nat),
+  body: (match (parseNumber value)
+    | Option.none => (ctor Option.none [Nat])
+    | Option.some parsed => (if (2 <? parsed) then (ctor Option.none [Nat]) else (ctor Option.some [Nat] parsed))),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: parseGross,
+  parameters: [value : Bytes],
+  result: (Option Nat),
+  body: (match (parseNumber value)
+    | Option.none => (ctor Option.none [Nat])
+    | Option.some parsed => (if (99999999 <? parsed) then (ctor Option.none [Nat]) else (ctor Option.some [Nat] parsed))),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: parseDependent,
+  parameters: [value : Bytes],
+  result: (Option Nat),
+  body: (if (prim equal value 0x796573 : Bool) then (ctor Option.some [Nat] (dependentYes)) else (if (prim equal value 0x6e6f : Bool) then (ctor Option.some [Nat] (dependentNo)) else (ctor Option.none [Nat])))
+}
+
+definition{
+  name: parseSpecial,
+  parameters: [value : Bytes],
+  result: (Option Nat),
+  body: (if (prim equal value 0x796573 : Bool) then (ctor Option.some [Nat] (specialYes)) else (if (prim equal value 0x6e6f : Bool) then (ctor Option.some [Nat] (specialNo)) else (ctor Option.none [Nat])))
+}
+
+definition{
+  name: parsePayments,
+  parameters: [value : Bytes],
+  result: (Option Nat),
+  body: (if (prim equal value 0x796573 : Bool) then (ctor Option.some [Nat] (paymentsYes)) else (if (prim equal value 0x6e6f : Bool) then (ctor Option.some [Nat] (paymentsNo)) else (ctor Option.none [Nat])))
+}
+
+definition{
+  name: sliceOf,
+  parameters: [s : Bytes, start : Nat, count : Nat],
+  result: Bytes,
+  body: (match (prim slice s start count : (Option Bytes))
+    | Option.none => 0x
+    | Option.some part => part)
+}
+
+definition{
+  name: fieldEnd,
+  parameters: [s : Bytes, i : Nat, fuel : Nat],
+  result: Nat,
+  body: (match fuel
+    | Nat.zero => i
+    | Nat.succ rest => (match (byteAt s i)
+      | Option.none => i
+      | Option.some d => (if (d =? 32) then i else (fieldEnd s (i + 1) rest)))),
+  axioms: [Quot.sound, propext],
+  recursive_argument: fuel
+}
+
+definition{
+  name: decodeField6,
+  parameters: [s : Bytes, start : Nat, v1 : Nat, v2 : Nat, v3 : Nat, v4 : Nat, v5 : Nat],
+  result: (Option Request),
+  body: (let e : Nat := (fieldEnd s start (Foundation.Bytes::byteLength s)); (match (parsePayments (sliceOf s start (prim subtract e start : Nat)))
+    | Option.none => (ctor Option.none [Request])
+    | Option.some v6 => (if (e =? (Foundation.Bytes::byteLength s)) then (ctor Option.some [Request] (record Request {status := v1, seniors := v2, gross := v3, dependent := v4, special := v5, payments := v6})) else (ctor Option.none [Request])))),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: decodeField5,
+  parameters: [s : Bytes, start : Nat, v1 : Nat, v2 : Nat, v3 : Nat, v4 : Nat],
+  result: (Option Request),
+  body: (let e : Nat := (fieldEnd s start (Foundation.Bytes::byteLength s)); (match (parseSpecial (sliceOf s start (prim subtract e start : Nat)))
+    | Option.none => (ctor Option.none [Request])
+    | Option.some v5 => (if (e <? (Foundation.Bytes::byteLength s)) then (decodeField6 s (e + 1) v1 v2 v3 v4 v5) else (ctor Option.none [Request])))),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: decodeField4,
+  parameters: [s : Bytes, start : Nat, v1 : Nat, v2 : Nat, v3 : Nat],
+  result: (Option Request),
+  body: (let e : Nat := (fieldEnd s start (Foundation.Bytes::byteLength s)); (match (parseDependent (sliceOf s start (prim subtract e start : Nat)))
+    | Option.none => (ctor Option.none [Request])
+    | Option.some v4 => (if (e <? (Foundation.Bytes::byteLength s)) then (decodeField5 s (e + 1) v1 v2 v3 v4) else (ctor Option.none [Request])))),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: decodeField3,
+  parameters: [s : Bytes, start : Nat, v1 : Nat, v2 : Nat],
+  result: (Option Request),
+  body: (let e : Nat := (fieldEnd s start (Foundation.Bytes::byteLength s)); (match (parseGross (sliceOf s start (prim subtract e start : Nat)))
+    | Option.none => (ctor Option.none [Request])
+    | Option.some v3 => (if (e <? (Foundation.Bytes::byteLength s)) then (decodeField4 s (e + 1) v1 v2 v3) else (ctor Option.none [Request])))),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: decodeField2,
+  parameters: [s : Bytes, start : Nat, v1 : Nat],
+  result: (Option Request),
+  body: (let e : Nat := (fieldEnd s start (Foundation.Bytes::byteLength s)); (match (parseSeniors (sliceOf s start (prim subtract e start : Nat)))
+    | Option.none => (ctor Option.none [Request])
+    | Option.some v2 => (if (e <? (Foundation.Bytes::byteLength s)) then (decodeField3 s (e + 1) v1 v2) else (ctor Option.none [Request])))),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: decodeField1,
+  parameters: [s : Bytes, start : Nat],
+  result: (Option Request),
+  body: (let e : Nat := (fieldEnd s start (Foundation.Bytes::byteLength s)); (match (parseStatus (sliceOf s start (prim subtract e start : Nat)))
+    | Option.none => (ctor Option.none [Request])
+    | Option.some v1 => (if (e <? (Foundation.Bytes::byteLength s)) then (decodeField2 s (e + 1) v1) else (ctor Option.none [Request])))),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: threshold,
+  parameters: [request : Request],
+  result: Nat,
+  body: (if ((project request status) =? (statusSeparate)) then 5 else (if ((project request status) =? (statusSingle)) then (if ((project request seniors) =? 0) then 16100 else 18150) else (if ((project request status) =? (statusHead)) then (if ((project request seniors) =? 0) then 24150 else 26200) else (if ((project request seniors) =? 0) then 32200 else (if ((project request seniors) =? 1) then 33850 else 35500)))))
+}
+
+definition{
+  name: judge,
+  parameters: [request : Request],
+  result: Nat,
+  body: (if ((project request dependent) =? (dependentYes)) then (answerReview) else (if ((project request special) =? (specialYes)) then (answerFile) else (if ((threshold request) <=? (project request gross)) then (answerFile) else (if ((project request payments) =? (paymentsYes)) then (answerRefund) else (answerNone)))))
+}
+
+definition{
+  name: encodeAnswer,
+  parameters: [code : Nat],
+  result: Bytes,
+  body: (if (code =? (answerFile)) then 0x66696c65 else (if (code =? (answerRefund)) then 0x726566756e64 else (if (code =? (answerNone)) then 0x6e6f6e65 else (if (code =? (answerReview)) then 0x726576696577 else 0x696e76616c6964))))
+}
+
+definition{
+  name: dispatch,
+  parameters: [value : Bytes],
+  result: Bytes,
+  body: (if (160 <? (Foundation.Bytes::byteLength value)) then 0x696e76616c6964 else (match (decodeField1 value 0)
+    | Option.none => 0x696e76616c6964
+    | Option.some request => (encodeAnswer (judge request)))),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: application,
+  parameters: [],
+  result: Foundation.View.Text.V1.Model::TextApplication,
+  body: (record Foundation.View.Text.V1.Model::TextApplication {profile := "prismpm/text-application/1", name := "Must I File 2026", cargoName := "prism-must-i-file", cargoVersion := "0.1.0", cargoDescription := "Decide whether a US taxpayer must file a federal income tax return for tax year 2026.", cargoRepository := "https://github.com/UOR-Foundation/PrismPM", cargoHomepage := "https://github.com/UOR-Foundation/PrismPM", libraryRoots := (cons "PrismMustIFile.MustIFile.dispatch" (nil String)), acceptanceVectors := (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203530303030206e6f206e6f20796573, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203135303030206e6f206e6f20796573, response := 0x726566756e64}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203135303030206e6f206e6f206e6f, response := 0x6e6f6e65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203136303939206e6f206e6f206e6f, response := 0x6e6f6e65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203136313030206e6f206e6f206e6f, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652031203137303030206e6f206e6f206e6f, response := 0x6e6f6e65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x6a6f696e742032203335303030206e6f206e6f206e6f, response := 0x6e6f6e65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x6a6f696e742031203335303030206e6f206e6f206e6f, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x6a6f696e742030203332323030206e6f206e6f206e6f, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x7365706172617465203020313030206e6f206e6f206e6f, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x686561642030203130303030206e6f20796573206e6f, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x686561642031203235303030206e6f206e6f206e6f, response := 0x6e6f6e65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203330303020796573206e6f206e6f, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302030207965732079657320796573, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c65203020302079657320796573206e6f, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203020796573206e6f20796573, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203020796573206e6f206e6f, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302030206e6f2079657320796573, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302030206e6f20796573206e6f, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302030206e6f206e6f20796573, response := 0x726566756e64}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302030206e6f206e6f206e6f, response := 0x6e6f6e65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302035207965732079657320796573, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c65203020352079657320796573206e6f, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203520796573206e6f20796573, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203520796573206e6f206e6f, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302035206e6f2079657320796573, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302035206e6f20796573206e6f, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302035206e6f206e6f20796573, response := 0x726566756e64}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302035206e6f206e6f206e6f, response := 0x6e6f6e65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203136313030207965732079657320796573, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302031363130302079657320796573206e6f, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c65203020313631303020796573206e6f20796573, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c65203020313631303020796573206e6f206e6f, response := 0x726576696577}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203136313030206e6f2079657320796573, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203136313030206e6f20796573206e6f, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203136313030206e6f206e6f20796573, response := 0x66696c65}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0xff, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c65203020302079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203020796573207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c65202030202030202079657320207965732020796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x756e6b6e6f776e20302030207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030372030207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c65202d312030207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c65202b312030207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520313030303030303030303030303030303030302030207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520d9a12030207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520782030207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520332030207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203037207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030202d31207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030202b31207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302031303030303030303030303030303030303030207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c65203020d9a1207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302078207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c65203020313030303030303030207965732079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c652030203020756e6b6e6f776e2079657320796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c65203020302079657320756e6b6e6f776e20796573, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x73696e676c6520302030207965732079657320756e6b6e6f776e, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x7878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878, response := 0x696e76616c6964}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x7878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878, response := 0x696e76616c6964}) (nil Foundation.View.Text.V1.Model::AcceptanceVector))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))), entryRoot := "PrismMustIFile.MustIFile.dispatch", coreContract := "hologram:guest/core-wasm@1", requestMaximum := (160 : UInt32), responseMaximum := (64 : UInt32), guestAllocationMaximum := (320 : UInt32), capabilitiesEmpty := true, fatArchive := true, primaryLayer := (0 : UInt8), viewLayer := (1 : UInt8), view := (record Foundation.View.Text.V1.Model::TextView {title := "Must I File 2026", heading := "Must I File 2026", inputLabel := "Request: status seniors gross dependent special payments", submitLabel := "Decide", outputLabel := "Answer", inputError := "Invalid request", responseError := "Invalid response"})})
+}
+\end{semanticmodule}
+\end{lexlean}

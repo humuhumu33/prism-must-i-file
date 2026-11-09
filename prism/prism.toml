@@ -1,0 +1,11 @@
+[application]
+name = "must-i-file"
+version = "0.1.0"
+description = "Decide whether a US taxpayer must file a federal income tax return for tax year 2026."
+
+[model]
+source = "src"
+watch = ["src/**/*.lex.tex", "language/**/*.toml", "lexlean.toml"]
+
+# Deny by default: an empty set grants the holo nothing.
+[capabilities]

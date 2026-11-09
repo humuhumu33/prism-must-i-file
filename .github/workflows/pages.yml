@@ -73,14 +73,14 @@ jobs:
             --env BUILDX_CONFIG=/tmp/prismpm-buildx \
             --env HOME=/tmp/prismpm-home \
             --env PRISMPM_EPHEMERAL_HOME=1 \
-            "$image" just app
+            "$image" sh -c 'cd prism && lexlean lock && lexlean fmt --all && lexlean lock && prismpm verify'
       - name: Find the holo
         id: holo
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
-          holos=(app/.prism/build/*/*.holo)
+          holos=(prism/.prism/build/*/*.holo)
           if [[ ${#holos[@]} -ne 1 ]]; then
             printf 'expected one holo, found %d\n' "${#holos[@]}" >&2
             exit 64

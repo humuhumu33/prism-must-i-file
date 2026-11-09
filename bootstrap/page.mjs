@@ -170,7 +170,7 @@ const unsplashOrigin = await frameUnsplash();
 // The workspace and the spec, rendered here so the page says everything
 // before any script runs. Three inputs, in order of trust: the holo this
 // build made (site/app.holo: its contract, limits, examples and build chain),
-// the LexLean source it was built from (app/src: its theorems and the rules
+// the LexLean source it was built from (prism/src: its theorems and the rules
 // they name), and app.json (the promise in plain words, and links).
 // ---------------------------------------------------------------------------
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -238,14 +238,14 @@ function fields(inner) {
 }
 const list = (s) => (s ?? "").replace(/^\[|\]$/g, "").split(/,\s*(?=[\w.]+\s*(?::|,|$))/).map((x) => x.trim()).filter(Boolean);
 async function lexlean() {
-  const dir = join(repoRoot, "app", "src");
+  const dir = join(repoRoot, "prism", "src");
   const files = (await readdir(dir, { recursive: true }).catch(() => []))
     .map((f) => f.split("\\").join("/"))
     .filter((f) => f.endsWith(".lex.tex") && !f.startsWith("Foundation/"))
     .sort();
   return Promise.all(files.map(async (f) => {
     const text = await readFile(join(dir, f), "utf8");
-    const path = `app/src/${f}`;
+    const path = `prism/src/${f}`;
     return {
       path,
       defs: blocks(text, "definition").map(fields).map((d) => ({ ...d, params: list(d.parameters) })),

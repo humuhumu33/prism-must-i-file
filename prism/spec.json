@@ -1,0 +1,472 @@
+{
+  "name": "must-i-file",
+  "title": "Must I File 2026",
+  "purpose": "Decide whether a US taxpayer must file a federal income tax return for tax year 2026.",
+  "fields": [
+    {
+      "name": "status",
+      "kind": "choice",
+      "values": [
+        "single",
+        "joint",
+        "separate",
+        "head"
+      ],
+      "means": "filing status: single, married filing jointly (also qualifying surviving spouse, whose thresholds are the same), married filing separately, head of household"
+    },
+    {
+      "name": "seniors",
+      "kind": "number",
+      "min": 0,
+      "max": 2,
+      "means": "how many filers on the return are 65 or older at the end of 2026 (born before January 2, 1962)"
+    },
+    {
+      "name": "gross",
+      "kind": "number",
+      "min": 0,
+      "max": 99999999,
+      "means": "gross income for 2026 as IRS Publication 501 defines it, in whole dollars; combined for a joint return"
+    },
+    {
+      "name": "dependent",
+      "kind": "choice",
+      "values": [
+        "yes",
+        "no"
+      ],
+      "means": "whether someone else can claim you as a dependent"
+    },
+    {
+      "name": "special",
+      "kind": "choice",
+      "values": [
+        "yes",
+        "no"
+      ],
+      "means": "whether you had net self-employment earnings of $400 or more, received advance premium tax credit payments, took HSA or Archer MSA distributions, or owe a special tax such as household employment, IRA additional tax, or Social Security tax"
+    },
+    {
+      "name": "payments",
+      "kind": "choice",
+      "values": [
+        "yes",
+        "no"
+      ],
+      "means": "whether tax was withheld or estimated tax paid, or you may qualify for a refundable credit such as the earned income credit"
+    }
+  ],
+  "outcomes": [
+    "file",
+    "refund",
+    "none",
+    "review"
+  ],
+  "rules": [
+    {
+      "id": "REQ-001",
+      "when": [
+        {
+          "field": "dependent",
+          "op": "is",
+          "value": "yes"
+        }
+      ],
+      "then": "review",
+      "says": "when dependent is yes then review",
+      "why": "dependents use a different test based on earned and unearned income"
+    },
+    {
+      "id": "REQ-002",
+      "when": [
+        {
+          "field": "special",
+          "op": "is",
+          "value": "yes"
+        }
+      ],
+      "then": "file",
+      "says": "when special is yes then file",
+      "why": "self-employment tax from $400 and these items require a return at any income"
+    },
+    {
+      "id": "REQ-003",
+      "when": [
+        {
+          "field": "status",
+          "op": "is",
+          "value": "separate"
+        },
+        {
+          "field": "gross",
+          "op": ">=",
+          "value": 5
+        }
+      ],
+      "then": "file",
+      "says": "when status is separate and gross >= 5 then file",
+      "why": "married filing separately must file from $5 at any age"
+    },
+    {
+      "id": "REQ-004",
+      "when": [
+        {
+          "field": "status",
+          "op": "is",
+          "value": "single"
+        },
+        {
+          "field": "seniors",
+          "op": "=",
+          "value": 0
+        },
+        {
+          "field": "gross",
+          "op": ">=",
+          "value": 16100
+        }
+      ],
+      "then": "file",
+      "says": "when status is single and seniors = 0 and gross >= 16100 then file",
+      "why": "2026 single standard deduction $16,100"
+    },
+    {
+      "id": "REQ-005",
+      "when": [
+        {
+          "field": "status",
+          "op": "is",
+          "value": "single"
+        },
+        {
+          "field": "seniors",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "field": "gross",
+          "op": ">=",
+          "value": 18150
+        }
+      ],
+      "then": "file",
+      "says": "when status is single and seniors >= 1 and gross >= 18150 then file",
+      "why": "$16,100 plus $2,050 for age 65"
+    },
+    {
+      "id": "REQ-006",
+      "when": [
+        {
+          "field": "status",
+          "op": "is",
+          "value": "head"
+        },
+        {
+          "field": "seniors",
+          "op": "=",
+          "value": 0
+        },
+        {
+          "field": "gross",
+          "op": ">=",
+          "value": 24150
+        }
+      ],
+      "then": "file",
+      "says": "when status is head and seniors = 0 and gross >= 24150 then file",
+      "why": "2026 head of household standard deduction $24,150"
+    },
+    {
+      "id": "REQ-007",
+      "when": [
+        {
+          "field": "status",
+          "op": "is",
+          "value": "head"
+        },
+        {
+          "field": "seniors",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "field": "gross",
+          "op": ">=",
+          "value": 26200
+        }
+      ],
+      "then": "file",
+      "says": "when status is head and seniors >= 1 and gross >= 26200 then file",
+      "why": "$24,150 plus $2,050 for age 65"
+    },
+    {
+      "id": "REQ-008",
+      "when": [
+        {
+          "field": "status",
+          "op": "is",
+          "value": "joint"
+        },
+        {
+          "field": "seniors",
+          "op": "=",
+          "value": 0
+        },
+        {
+          "field": "gross",
+          "op": ">=",
+          "value": 32200
+        }
+      ],
+      "then": "file",
+      "says": "when status is joint and seniors = 0 and gross >= 32200 then file",
+      "why": "2026 joint standard deduction $32,200"
+    },
+    {
+      "id": "REQ-009",
+      "when": [
+        {
+          "field": "status",
+          "op": "is",
+          "value": "joint"
+        },
+        {
+          "field": "seniors",
+          "op": "=",
+          "value": 1
+        },
+        {
+          "field": "gross",
+          "op": ">=",
+          "value": 33850
+        }
+      ],
+      "then": "file",
+      "says": "when status is joint and seniors = 1 and gross >= 33850 then file",
+      "why": "$32,200 plus $1,650 for one spouse 65"
+    },
+    {
+      "id": "REQ-010",
+      "when": [
+        {
+          "field": "status",
+          "op": "is",
+          "value": "joint"
+        },
+        {
+          "field": "seniors",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "field": "gross",
+          "op": ">=",
+          "value": 35500
+        }
+      ],
+      "then": "file",
+      "says": "when status is joint and seniors >= 2 and gross >= 35500 then file",
+      "why": "$32,200 plus $1,650 for each spouse 65"
+    },
+    {
+      "id": "REQ-011",
+      "when": [
+        {
+          "field": "payments",
+          "op": "is",
+          "value": "yes"
+        }
+      ],
+      "then": "refund",
+      "says": "when payments is yes then refund",
+      "why": "only a return gets withheld tax or refundable credits back"
+    }
+  ],
+  "otherwise": "none",
+  "properties": [
+    {
+      "id": "INV-001",
+      "kind": "always",
+      "when": [
+        {
+          "field": "dependent",
+          "op": "is",
+          "value": "yes"
+        }
+      ],
+      "then": "review",
+      "says": "always when dependent is yes then review",
+      "why": "applying adult thresholds to a dependent gives a wrong answer"
+    },
+    {
+      "id": "INV-002",
+      "kind": "never",
+      "when": [
+        {
+          "field": "special",
+          "op": "is",
+          "value": "yes"
+        }
+      ],
+      "then": "none",
+      "says": "never when special is yes then none",
+      "why": "self-employment tax, advance premium credits and special taxes must be reported on a return"
+    },
+    {
+      "id": "INV-003",
+      "kind": "never",
+      "when": [
+        {
+          "field": "payments",
+          "op": "is",
+          "value": "yes"
+        }
+      ],
+      "then": "none",
+      "says": "never when payments is yes then none",
+      "why": "telling someone with tax withheld to skip filing forfeits their refund"
+    },
+    {
+      "id": "INV-004",
+      "kind": "always",
+      "when": [
+        {
+          "field": "status",
+          "op": "is",
+          "value": "single"
+        },
+        {
+          "field": "gross",
+          "op": ">=",
+          "value": 18150
+        },
+        {
+          "field": "dependent",
+          "op": "is",
+          "value": "no"
+        }
+      ],
+      "then": "file",
+      "says": "always when status is single and gross >= 18150 and dependent is no then file",
+      "why": "above the highest single threshold a return is always required"
+    },
+    {
+      "id": "INV-005",
+      "kind": "always",
+      "when": [
+        {
+          "field": "status",
+          "op": "is",
+          "value": "joint"
+        },
+        {
+          "field": "gross",
+          "op": ">=",
+          "value": 35500
+        },
+        {
+          "field": "dependent",
+          "op": "is",
+          "value": "no"
+        }
+      ],
+      "then": "file",
+      "says": "always when status is joint and gross >= 35500 and dependent is no then file",
+      "why": "above the highest joint threshold a return is always required"
+    },
+    {
+      "id": "INV-006",
+      "kind": "never",
+      "when": [
+        {
+          "field": "gross",
+          "op": "<",
+          "value": 5
+        },
+        {
+          "field": "special",
+          "op": "is",
+          "value": "no"
+        }
+      ],
+      "then": "file",
+      "says": "never when gross < 5 and special is no then file",
+      "why": "nobody without income or special items is told they must file"
+    }
+  ],
+  "examples": [
+    {
+      "request": "single 0 50000 no no yes",
+      "response": "file"
+    },
+    {
+      "request": "single 0 15000 no no yes",
+      "response": "refund"
+    },
+    {
+      "request": "single 0 15000 no no no",
+      "response": "none"
+    },
+    {
+      "request": "single 0 16099 no no no",
+      "response": "none"
+    },
+    {
+      "request": "single 0 16100 no no no",
+      "response": "file"
+    },
+    {
+      "request": "single 1 17000 no no no",
+      "response": "none"
+    },
+    {
+      "request": "joint 2 35000 no no no",
+      "response": "none"
+    },
+    {
+      "request": "joint 1 35000 no no no",
+      "response": "file"
+    },
+    {
+      "request": "joint 0 32200 no no no",
+      "response": "file"
+    },
+    {
+      "request": "separate 0 100 no no no",
+      "response": "file"
+    },
+    {
+      "request": "head 0 10000 no yes no",
+      "response": "file"
+    },
+    {
+      "request": "head 1 25000 no no no",
+      "response": "none"
+    },
+    {
+      "request": "single 0 3000 yes no no",
+      "response": "review"
+    }
+  ],
+  "schema": "prism/spec/1",
+  "actors": [],
+  "meanings": {
+    "file": "you must file a 2026 federal return",
+    "refund": "you need not file, but filing may get money back",
+    "none": "you need not file a 2026 federal return",
+    "review": "dependent thresholds apply; check IRS Publication 501, Table 2"
+  },
+  "otherwiseWhy": "income is under every 2026 threshold and nothing else requires a return",
+  "limits": [
+    "Decides only whether a 2026 federal return is required; it does not compute tax, prepare a return, or file one.",
+    "State returns are not covered.",
+    "Dependents get review: their thresholds depend on earned versus unearned income (IRS Publication 501, Table 2).",
+    "You work out gross income yourself; most Social Security benefits are excluded from it (see Publication 501).",
+    "A qualifying surviving spouse enters joint, because the 2026 thresholds are the same.",
+    "Blindness does not change these filing thresholds, so it is not asked.",
+    "For single and head of household, seniors above 1 counts as 1.",
+    "Married filing separately must file from $5 of gross income at any age.",
+    "Nonresident aliens, dual-status filers and US residents of territories are not covered.",
+    "Thresholds are the 2026 standard deductions from Rev. Proc. 2025-32: $16,100 single, $32,200 joint and surviving spouse, $24,150 head of household, plus $2,050 (single or head) or $1,650 (married) per filer 65 or older."
+  ]
+}
