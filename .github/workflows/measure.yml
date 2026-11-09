@@ -1,6 +1,5 @@
 # One-off measurement, on the measure branch only: where the time inside
-# `prismpm verify` goes. Each phase runs cold, in its own container on its own
-# copy of prism/, in the SDK image prismpm.lock pins.
+# `prismpm verify` goes, by program, sampled every 2 s inside the container.
 name: measure
 
 on:
@@ -29,42 +28,37 @@ jobs:
           start=$(date +%s)
           docker pull --quiet "$image"
           echo "PHASE image-pull $(( $(date +%s) - start ))s"
-      - name: Time each phase cold
+      - name: Time prismpm verify by program
         shell: bash
         run: |
           set -euo pipefail
           docker_config=$(mktemp -d)
           printf '{}\n' >"$docker_config/config.json"
           mkdir -p telemetry
-          phase() {
-            local name=$1 command=$2
-            rm -rf "m-$name" && cp -r prism "m-$name"
-            mkdir -p "telemetry/$name"
-            local start=$(date +%s)
-            docker run --rm \
-              --user "$(id -u):$(id -g)" \
-              --group-add "$(stat -c '%g' /var/run/docker.sock)" \
-              --tmpfs /tmp:rw,exec,nosuid,size=2g \
-              --volume "$PWD:$PWD" \
-              --volume /var/run/docker.sock:/var/run/docker.sock \
-              --volume "$docker_config:/tmp/prismpm-home/.docker:ro" \
-              --workdir "$PWD/m-$name" \
-              --env DOCKER_CONFIG=/tmp/prismpm-home/.docker \
-              --env BUILDX_CONFIG=/tmp/prismpm-buildx \
-              --env HOME=/tmp/prismpm-home \
-              --env PRISMPM_EPHEMERAL_HOME=1 \
-              --env LEXLEAN_CI_TELEMETRY="$PWD/telemetry/$name" \
-              "$IMAGE" sh -c "lexlean lock && lexlean fmt --all && lexlean lock && $command" 2>&1 \
-              | while IFS= read -r line; do printf '%s %s\n' "$(date +%T)" "$line"; done
-            echo "PHASE $name $(( $(date +%s) - start ))s"
-          }
-          phase prismpm-verify 'prismpm verify'
-      - name: Keep the telemetry
+          cp -r prism m-verify
+          start=$(date +%s)
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --group-add "$(stat -c '%g' /var/run/docker.sock)" \
+            --tmpfs /tmp:rw,exec,nosuid,size=2g \
+            --volume "$PWD:$PWD" \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "$docker_config:/tmp/prismpm-home/.docker:ro" \
+            --workdir "$PWD/m-verify" \
+            --env DOCKER_CONFIG=/tmp/prismpm-home/.docker \
+            --env BUILDX_CONFIG=/tmp/prismpm-buildx \
+            --env HOME=/tmp/prismpm-home \
+            --env PRISMPM_EPHEMERAL_HOME=1 \
+            --env LEXLEAN_CI_TELEMETRY="$PWD/telemetry" \
+            "$IMAGE" sh -c "sh $PWD/ci/sample.sh $PWD/telemetry/ps.log & lexlean lock && lexlean fmt --all && lexlean lock && prismpm verify"
+          echo "PHASE prismpm-verify $(( $(date +%s) - start ))s"
+          first=$(head -1 telemetry/ps.log | cut -d' ' -f1)
+          echo "Seconds each program was running (2 s samples), and its first and last second:"
+          sort -u telemetry/ps.log | awk -v f="$first" '{n[$2]++; if (!($2 in a)) a[$2]=$1-f; b[$2]=$1-f} END {for (c in n) printf "%5d s  from %4d to %4d  %s\n", n[c]*2, a[c], b[c], c}' | sort -rn | head -30
+      - name: Keep the samples
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: telemetry
-          path: |
-            telemetry
-            m-prismpm-verify/.prism/**/*.json
+          path: telemetry
           if-no-files-found: warn
