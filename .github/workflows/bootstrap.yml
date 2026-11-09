@@ -1,0 +1,77 @@
+# This is the minimal human-reviewed trust root. PrismPM does not generate it.
+name: bootstrap
+
+on:
+  push:
+    branches: [main]
+    tags: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to a pull request cancels its older run. Every other run has a
+# group of its own, so a main or tag run is never cancelled, and never replaced
+# while queued, and every merged or released commit keeps its verdict.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('bootstrap-pr-{0}', github.event.pull_request.number) || format('bootstrap-run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  template-gate:
+    name: acceptance / ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # A pull request runs the complete gate once, natively on amd64. Main and
+        # tags run it on both native architectures before anything is published.
+        runner: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run the template gate through the locked SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=$(sed -n 's/.*"sdk_image":"\([^"]*\)".*/\1/p' prismpm.lock)
+          if [[ ! $image =~ ^[a-z0-9.-]+(:[0-9]{1,5})?/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]]; then
+            printf '%s\n' 'prismpm.lock does not select an immutable SDK image' >&2
+            exit 64
+          fi
+          docker_config=$(mktemp -d)
+          trap 'rm -rf "$docker_config"' EXIT
+          if test -f "$HOME/.docker/config.json"; then
+            cp "$HOME/.docker/config.json" "$docker_config/config.json"
+          else
+            printf '{}\n' >"$docker_config/config.json"
+          fi
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --group-add "$(stat -c '%g' /var/run/docker.sock)" \
+            --tmpfs /tmp:rw,exec,nosuid,size=2g \
+            --volume "$PWD:$PWD" \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "$docker_config:/tmp/prismpm-home/.docker:ro" \
+            --workdir "$PWD" \
+            --env DOCKER_CONFIG=/tmp/prismpm-home/.docker \
+            --env BUILDX_CONFIG=/tmp/prismpm-buildx \
+            --env HOME=/tmp/prismpm-home \
+            --env PRISMPM_EPHEMERAL_HOME=1 \
+            --env SDK_IMAGE="$image" \
+            "$image" bash -c '
+              set -euo pipefail
+              umask 077
+              docker buildx version
+              docker buildx inspect --bootstrap
+              manifest=$(docker buildx imagetools inspect "$SDK_IMAGE")
+              grep -q "linux/amd64" <<< "$manifest"
+              grep -q "linux/arm64" <<< "$manifest"
+              devcontainer --version
+              exec just vv
+            '

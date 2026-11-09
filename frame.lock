@@ -1,0 +1,69 @@
+{
+  "spec": "prism/frame-lock/1",
+  "files": [
+    {
+      "path": "bootstrap/frame-sync.mjs",
+      "sha256": "c7df2d026b14ec0783a068a3fcb87a1eaabf2ea7f55ac6b61cb96b96e21e7957"
+    },
+    {
+      "path": "bootstrap/icons.py",
+      "sha256": "e3cff5530d752ee1563df8622e4b9ff3453f2d62c850d00fb5a5f1467e5e0b4b"
+    },
+    {
+      "path": "bootstrap/og.py",
+      "sha256": "3794633d2e60896ae86c599f82b17400f04ad6cc32197c35276cde99850e0c7a"
+    },
+    {
+      "path": "bootstrap/page.mjs",
+      "sha256": "d7be5909c0419ea566da7482b0d2f283e0151417d31fb5fb2463398ce301554c"
+    },
+    {
+      "path": "bootstrap/precache.mjs",
+      "sha256": "d1af0e811ed68ea3695144e9c0abddd3c9bf24007b9fde8c5b12f91ec225a388"
+    },
+    {
+      "path": "bootstrap/register.mjs",
+      "sha256": "c83e32d67f7bf8964498527c44a35c4da6f5428e358ae367dc651f0a6c601cf7"
+    },
+    {
+      "path": "bootstrap/screens.mjs",
+      "sha256": "c9787ebf5ad8e8b649034ec3e43f8812ba51777ba59eb11f1f51ca084a395b67"
+    },
+    {
+      "path": "lighthouserc.json",
+      "sha256": "0145d04da93193801b0d8736ceba7e0df94b9b15f183b07a16e6feda16d72082"
+    },
+    {
+      "path": "site/app.mjs",
+      "sha256": "7a54aecef87c300cbff8d6d578e146d7f508dbe5ea73e5775edcd4cd36a3363a"
+    },
+    {
+      "path": "site/guest-worker.mjs",
+      "sha256": "0aae31bd459646dfa3a9b8f5f1e9139a34f2fc86154342c14ad5601ec9876d7e"
+    },
+    {
+      "path": "site/page.template.html",
+      "sha256": "d7df0bc4d5190ca38ee768bdbd54cbc665ede811608de846068c8a92bd02c14d"
+    },
+    {
+      "path": "site/prism-page.css",
+      "sha256": "e74dc6dbe7f1394fdf1f7c663578ea4fbb4836f301b87f82d57a7c5dc6066e1c"
+    },
+    {
+      "path": "site/spec.css",
+      "sha256": "a74d0a4e5329f9ab60e5e8ef5f0964ac0af5d1c17912539ae1880fb3862dd383"
+    },
+    {
+      "path": "site/spec.mjs",
+      "sha256": "9f3fa8197085693da6423a27ea228f9180523702c479f19e64fdf27c1d1054bf"
+    },
+    {
+      "path": "site/sw.js",
+      "sha256": "b4d4eb5c8314f5abed013ea9d172e7352dbdfa5aa2b503901df364ebcfbf11f7"
+    },
+    {
+      "path": "site/theme.js",
+      "sha256": "dedc458660aa62df983ab84dbf370ac365578289699aa6cf8f1476c97db2ce92"
+    }
+  ]
+}
