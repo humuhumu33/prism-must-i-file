@@ -129,7 +129,11 @@ jobs:
             app.attestations.build = { id, url };
             writeFileSync("site/app.json", `${JSON.stringify(app, null, 2)}\n`);
           ' "$FINGERPRINT" "$ATTESTATION_URL"
+          # The frame reads the model from app/src, which holds the template's
+          # contract checker; this page describes the app in prism/src.
+          rm -rf app/src && cp -r prism/src app/src
           node bootstrap/page.mjs site
+          find site -name '*.html' -exec sed -i -E 's#(/blob/[0-9a-f]+/)app/src/#\1prism/src/#g' {} +
           node bootstrap/precache.mjs site
       - name: Lighthouse at 100 on mobile, before anything is deployed
         shell: bash
