@@ -1,53 +1,96 @@
 // Input-addressed holo cache.
 //
-// A holo is a pure function of its inputs: the app's sources under prism/ and
-// the SDK image prismpm.lock pins. So the build is keyed by the kappa (BLAKE3)
-// of exactly those bytes, and a build whose kappa was already built anywhere
-// in this owner's Prism apps is fetched instead of rebuilt. The kappa registry
-// (registry.uor.foundation) is the discovery layer: it lists every Prism app,
-// so lookups reach every app this owner has shipped. Each app's own container
-// package on ghcr.io is the byte store, tagged by input kappa.
+// A holo is a pure function of its inputs: the app's sources, the recipe that
+// builds them and the SDK image prismpm.lock pins. So the build is keyed by the
+// kappa (BLAKE3) of exactly those bytes, and a build whose kappa was already
+// built in any of this owner's Prism apps is fetched instead of rebuilt. The
+// kappa registry (registry.uor.foundation) is the discovery layer: it lists
+// every Prism app, so a lookup reaches every app this owner has shipped. Each
+// app's own container package on ghcr.io is the byte store, tagged by kappa.
 //
-// A cached holo is never trusted: it is used only after its OCI digest, its
+// A cached holo is never trusted. It is used only after its OCI digest, its
 // self-fingerprint, its recorded input kappa and every acceptance vector it
-// carries check out here. Any failure is a miss, and a miss is a full build.
-// Nothing in this file can fail a build: errors are reported and fall through.
+// carries check out here; any failure is a miss, and a miss is a full build.
+// Entries from other owners are never read: nothing here can prove a holo was
+// built from the inputs its tag names without building them, so the trust
+// domain is the owner whose workflows wrote it. Nothing in this file can fail
+// a build: errors are reported and fall through to building.
 //
-//   node ci/kappa-cache.mjs key                print the input kappa
-//   node ci/kappa-cache.mjs restore <out.holo> fetch and verify, or report a miss
-//   KAPPA=<kappa> node ci/kappa-cache.mjs save <app.holo>
-//                                              store this build under the kappa
-//                                              the lookup computed before it
+//   node ci/kappa-cache.mjs key [<input>...]                print the input kappa
+//   node ci/kappa-cache.mjs restore <out.holo> [<input>...] fetch and verify, or miss
+//   KAPPA=<kappa> node ci/kappa-cache.mjs save <app.holo>   store under the kappa the
+//                                                            lookup computed: a build
+//                                                            may rewrite its inputs
+//
+// The inputs default to the template's app: app/, the Justfile whose `app`
+// recipe builds it, and prismpm.lock.
 
 import { execFileSync } from "node:child_process";
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { kappa, load } from "../try/vendor/prism-code/src/index.mjs";
 
 const SCHEMA = "prism/input-kappa/1";
-const INPUTS = ["prism", "prismpm.lock"];
+export const DEFAULT_INPUTS = ["app", "Justfile", "prismpm.lock"];
 const PACKAGE = "prism-holo";
-const MEDIA = "application/vnd.uor.prism.holo.v1";
+export const MEDIA = "application/vnd.uor.prism.holo.v1";
 const REGISTRY = process.env.PRISM_REGISTRY || "registry.uor.foundation";
 
 const say = (text) => console.log(`kappa-cache: ${text}`);
 const output = (name, value) => process.env.GITHUB_OUTPUT && appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
 const sha256 = (bytes) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 const repository = () => (process.env.GITHUB_REPOSITORY || "").toLowerCase();
+const tagOf = (k) => k.replace(":", "-");
 
 // The input kappa: every tracked file under the inputs, in byte order of path,
 // each framed by its path and length so no two input sets share an encoding.
-export function inputKappa() {
-  const files = execFileSync("git", ["ls-files", "-z", "--", ...INPUTS], { encoding: "utf8" }).split("\0").filter(Boolean).sort();
+export function inputKappa(inputs = DEFAULT_INPUTS, cwd = process.cwd()) {
+  const files = execFileSync("git", ["ls-files", "-z", "--", ...inputs], { cwd, encoding: "utf8" }).split("\0").filter(Boolean).sort();
+  if (files.length === 0) throw new Error(`no tracked files under ${inputs.join(", ")}`);
   const parts = [Buffer.from(`${SCHEMA}\n`)];
   for (const path of files) {
-    const bytes = readFileSync(path);
+    const bytes = readFileSync(`${cwd}/${path}`);
     parts.push(Buffer.from(`${path}\0${bytes.length}\0`), bytes);
   }
   return { kappa: kappa(Buffer.concat(parts)), files: files.length };
 }
-const tagOf = (k) => k.replace(":", "-");
+
+// A holo is accepted only if it verifies itself and replays every example.
+export async function verify(blob) {
+  if (blob.length < 64) throw new Error("too short to be a holo");
+  const fingerprint = blob.subarray(blob.length - 32);
+  if (kappa(blob.subarray(0, blob.length - 32)) !== `blake3:${fingerprint.toString("hex")}`) throw new Error("self-fingerprint fails");
+  const app = await load(blob);
+  const result = await app.acceptance();
+  if (!(result.total > 0 && result.passed === result.total)) throw new Error(`${result.passed} of ${result.total} vectors passed`);
+  return { name: app.name, vectors: result.total, fingerprint: fingerprint.toString("hex") };
+}
+
+// A manifest names a holo for this kappa only if it says so and carries one.
+export function holoLayer(manifest, k) {
+  if (manifest.annotations?.["uor.prism.input-kappa"] !== k) throw new Error("recorded input kappa differs");
+  const layer = manifest.layers?.find((l) => l.mediaType === MEDIA);
+  if (!layer) throw new Error("no holo layer");
+  return layer;
+}
+
+// The holo's self-fingerprint is a checksum anyone can recompute, and a bit
+// flipped in guest code no example reaches still replays every example. What
+// binds a cached holo to a build is the provenance GitHub signed for it: it
+// must be signed by the pages workflow on main of the repository that stored
+// it. `gh attestation verify` checks the signature through Sigstore.
+export function attested(path, repo, run = execFileSync) {
+  run("gh", ["attestation", "verify", path, "--repo", repo, "--signer-workflow", `${repo}/.github/workflows/pages.yml`, "--source-ref", "refs/heads/main"], {
+    stdio: ["ignore", "ignore", "pipe"],
+    env: { ...process.env, GH_TOKEN: process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "" },
+  });
+}
+
+export function checkBlob(blob, layer) {
+  if (sha256(blob) !== layer.digest) throw new Error("blob digest differs from its manifest");
+}
 
 async function token(name, actions) {
   const headers = {};
@@ -83,30 +126,18 @@ async function fetchEntry(repo, k) {
   const bearer = await token(name, "pull").catch(() => null);
   if (!bearer) return null;
   const auth = { authorization: `Bearer ${bearer}` };
-  const manifestResponse = await fetch(`https://ghcr.io/v2/${name}/manifests/${tagOf(k)}`, { headers: { ...auth, accept: "application/vnd.oci.image.manifest.v1+json" } });
-  if (manifestResponse.status === 404 || manifestResponse.status === 401 || manifestResponse.status === 403) return null;
-  if (!manifestResponse.ok) throw new Error(`manifest ${manifestResponse.status}`);
-  const manifest = await manifestResponse.json();
-  const layer = manifest.layers?.find((l) => l.mediaType === MEDIA);
-  if (!layer) throw new Error("no holo layer");
-  if (manifest.annotations?.["uor.prism.input-kappa"] !== k) throw new Error("recorded input kappa differs");
+  const response = await fetch(`https://ghcr.io/v2/${name}/manifests/${tagOf(k)}`, { headers: { ...auth, accept: "application/vnd.oci.image.manifest.v1+json" } });
+  if ([401, 403, 404].includes(response.status)) return null;
+  if (!response.ok) throw new Error(`manifest ${response.status}`);
+  const manifest = await response.json();
+  const layer = holoLayer(manifest, k);
   const blob = Buffer.from(await (await fetch(`https://ghcr.io/v2/${name}/blobs/${layer.digest}`, { headers: auth })).arrayBuffer());
-  if (sha256(blob) !== layer.digest) throw new Error("blob digest differs from its manifest");
+  checkBlob(blob, layer);
   return { blob, annotations: manifest.annotations ?? {}, ref: `ghcr.io/${name}:${tagOf(k)}` };
 }
 
-// A holo is accepted only if it verifies itself and replays every example.
-async function verify(blob) {
-  const fingerprint = blob.subarray(blob.length - 32);
-  if (kappa(blob.subarray(0, blob.length - 32)) !== `blake3:${fingerprint.toString("hex")}`) throw new Error("self-fingerprint fails");
-  const app = await load(blob);
-  const result = await app.acceptance();
-  if (!(result.total > 0 && result.passed === result.total)) throw new Error(`${result.passed} of ${result.total} vectors passed`);
-  return { name: app.name, vectors: result.total, fingerprint: fingerprint.toString("hex") };
-}
-
-async function restore(out) {
-  const { kappa: k, files } = inputKappa();
+async function restore(out, inputs) {
+  const { kappa: k, files } = inputKappa(inputs);
   say(`input ${k} over ${files} files`);
   output("kappa", k);
   for (const repo of await candidates()) {
@@ -114,10 +145,17 @@ async function restore(out) {
     try {
       const entry = await fetchEntry(repo, k);
       if (!entry) continue;
-      const checked = await verify(entry.blob);
       mkdirSync(dirname(out), { recursive: true });
       writeFileSync(out, entry.blob);
-      say(`hit ${entry.ref}: ${checked.name}, ${checked.vectors} vectors replayed, fingerprint ${checked.fingerprint}, built by ${entry.annotations["uor.prism.run"] ?? "unknown run"} (${Date.now() - started} ms)`);
+      let checked;
+      try {
+        attested(out, repo);
+        checked = await verify(entry.blob);
+      } catch (error) {
+        rmSync(out, { force: true });
+        throw new Error(error.stderr ? `no signed provenance: ${String(error.stderr).trim().split("\n").pop()}` : error.message);
+      }
+      say(`hit ${entry.ref}: ${checked.name}, ${checked.vectors} vectors replayed, fingerprint ${checked.fingerprint}, built by ${entry.annotations["uor.prism.run"] || "an unrecorded run"} (${Date.now() - started} ms)`);
       output("hit", "true");
       output("from", entry.ref);
       output("built_by", entry.annotations["uor.prism.run"] ?? "");
@@ -131,8 +169,6 @@ async function restore(out) {
 }
 
 async function save(holo) {
-  // The kappa the lookup computed before the build: the build itself relocks
-  // and reformats prism/, so recomputing it now would key different bytes.
   const k = process.env.KAPPA;
   if (!/^blake3:[0-9a-f]{64}$/.test(k ?? "")) throw new Error("KAPPA names no input kappa from the lookup");
   const repo = repository();
@@ -141,15 +177,14 @@ async function save(holo) {
   const checked = await verify(blob);
   const bearer = await token(name, "pull,push");
   const auth = { authorization: `Bearer ${bearer}` };
-  const put = async (bytes, type) => {
+  const put = async (bytes) => {
     const digest = sha256(bytes);
-    const head = await fetch(`https://ghcr.io/v2/${name}/blobs/${digest}`, { method: "HEAD", headers: auth });
-    if (head.ok) return digest;
+    if ((await fetch(`https://ghcr.io/v2/${name}/blobs/${digest}`, { method: "HEAD", headers: auth })).ok) return digest;
     const start = await fetch(`https://ghcr.io/v2/${name}/blobs/uploads/`, { method: "POST", headers: auth });
     if (start.status !== 202) throw new Error(`upload start ${start.status}`);
     const location = new URL(start.headers.get("location"), "https://ghcr.io");
     location.searchParams.set("digest", digest);
-    const done = await fetch(location, { method: "PUT", headers: { ...auth, "content-type": type }, body: bytes });
+    const done = await fetch(location, { method: "PUT", headers: { ...auth, "content-type": "application/octet-stream" }, body: bytes });
     if (done.status !== 201) throw new Error(`upload ${done.status}`);
     return digest;
   };
@@ -158,8 +193,8 @@ async function save(holo) {
     schemaVersion: 2,
     mediaType: "application/vnd.oci.image.manifest.v1+json",
     artifactType: MEDIA,
-    config: { mediaType: "application/vnd.oci.empty.v1+json", digest: await put(config, "application/octet-stream"), size: config.length },
-    layers: [{ mediaType: MEDIA, digest: await put(blob, "application/octet-stream"), size: blob.length, annotations: { "org.opencontainers.image.title": `${checked.name}.holo` } }],
+    config: { mediaType: "application/vnd.oci.empty.v1+json", digest: await put(config), size: config.length },
+    layers: [{ mediaType: MEDIA, digest: await put(blob), size: blob.length, annotations: { "org.opencontainers.image.title": `${checked.name}.holo` } }],
     annotations: {
       "org.opencontainers.image.source": `https://github.com/${repo}`,
       "org.opencontainers.image.description": `Prism holo for input ${k}`,
@@ -178,17 +213,19 @@ async function save(holo) {
   say(`saved ghcr.io/${name}:${tagOf(k)} (${checked.vectors} vectors replayed before saving)`);
 }
 
-const [mode, arg] = process.argv.slice(2);
-try {
-  if (mode === "key") console.log(inputKappa().kappa);
-  else if (mode === "restore" && arg) await restore(arg);
-  else if (mode === "save" && arg) await save(arg);
-  else {
-    console.error("usage: kappa-cache.mjs key | restore <out.holo> | save <app.holo>");
-    process.exit(64);
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const [mode, arg, ...rest] = process.argv.slice(2);
+  try {
+    if (mode === "key") console.log(inputKappa([arg, ...rest].filter(Boolean).length ? [arg, ...rest] : DEFAULT_INPUTS).kappa);
+    else if (mode === "restore" && arg) await restore(arg, rest.length ? rest : DEFAULT_INPUTS);
+    else if (mode === "save" && arg) await save(arg);
+    else {
+      console.error("usage: kappa-cache.mjs key [<input>...] | restore <out.holo> [<input>...] | save <app.holo>");
+      process.exit(64);
+    }
+  } catch (error) {
+    // The cache only ever saves time; it never decides a build.
+    say(`not used: ${error.message}`);
+    if (mode === "restore") output("hit", "false");
   }
-} catch (error) {
-  // The cache only ever saves time; it never decides a build.
-  say(`skipped: ${error.message}`);
-  if (mode === "restore") output("hit", "false");
 }

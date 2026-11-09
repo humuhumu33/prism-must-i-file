@@ -57,7 +57,7 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node ci/kappa-cache.mjs restore prism/.prism/build/kappa/app.holo
+        run: node ci/kappa-cache.mjs restore prism/.prism/build/kappa/app.holo prism prismpm.lock
       - name: Build and verify the holo through the locked SDK
         if: steps.cache.outputs.hit != 'true'
         shell: bash
