@@ -116,6 +116,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           HOLO: ${{ steps.holo.outputs.path }}
+          KAPPA: ${{ steps.cache.outputs.kappa }}
         run: node ci/kappa-cache.mjs save "$HOLO"
       - name: Sign the holo's provenance as this repository's workflow
         id: attest

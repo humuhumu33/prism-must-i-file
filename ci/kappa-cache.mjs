@@ -15,7 +15,9 @@
 //
 //   node ci/kappa-cache.mjs key                print the input kappa
 //   node ci/kappa-cache.mjs restore <out.holo> fetch and verify, or report a miss
-//   node ci/kappa-cache.mjs save <app.holo>    store this build under its kappa
+//   KAPPA=<kappa> node ci/kappa-cache.mjs save <app.holo>
+//                                              store this build under the kappa
+//                                              the lookup computed before it
 
 import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -129,7 +131,10 @@ async function restore(out) {
 }
 
 async function save(holo) {
-  const { kappa: k } = inputKappa();
+  // The kappa the lookup computed before the build: the build itself relocks
+  // and reformats prism/, so recomputing it now would key different bytes.
+  const k = process.env.KAPPA;
+  if (!/^blake3:[0-9a-f]{64}$/.test(k ?? "")) throw new Error("KAPPA names no input kappa from the lookup");
   const repo = repository();
   const name = `${repo}/${PACKAGE}`;
   const blob = readFileSync(holo);
